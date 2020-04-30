@@ -1,0 +1,133 @@
+#---------------------------------------------------------------------
+# Example configuration for a possible web application.  See the
+# full configuration options online.
+#
+#   http://haproxy.1wt.eu/download/1.4/doc/configuration.txt
+#
+#---------------------------------------------------------------------
+
+#---------------------------------------------------------------------
+# Global settings
+#---------------------------------------------------------------------
+global
+    # to have these messages end up in /var/log/haproxy.log you will
+    # need to:
+    #
+    # 1) configure syslog to accept network log events.  This is done
+    #    by adding the '-r' option to the SYSLOGD_OPTIONS in
+    #    /etc/sysconfig/syslog
+    #
+    # 2) configure local2 events to go to the /var/log/haproxy.log
+    #   file. A line like the following can be added to
+    #   /etc/sysconfig/syslog
+    #
+    #    local2.*                       /var/log/haproxy.log
+    #
+    log         127.0.0.1 local2
+
+    chroot      /var/lib/haproxy
+    pidfile     /var/run/haproxy.pid
+    maxconn     4000
+    user        haproxy
+    group       haproxy
+#    ssl-server-verify none
+
+    # turn on stats unix socket
+#    stats socket /var/lib/haproxy/stats
+
+#---------------------------------------------------------------------
+# common defaults that all the 'listen' and 'backend' sections will
+# use if not designated in their block
+#---------------------------------------------------------------------
+defaults
+    mode                    tcp
+    log                     global
+    option                  httplog
+    option                  dontlognull
+#    option http-server-close
+#    option forwardfor
+    option                  redispatch
+    retries                 3
+    timeout http-request    10s
+    timeout queue           1m
+    timeout connect         10s
+    timeout client          1m
+    timeout server          1m
+    timeout http-keep-alive 10s
+    timeout check           10s
+    maxconn                 200000
+#    balance                roundrobin
+
+
+listen stats
+        bind 192.168.3.148:1936
+        mode http
+        stats enable
+        stats realm Konsalt
+        stats uri /stats
+        stats auth redhat:konsalt
+
+
+#############################################################
+####################  Frontend
+frontend api-6443
+    bind *:6443
+    mode tcp
+    default_backend api-6443
+    option tcplog
+####################  Backends
+backend api-6443
+    balance source
+    mode tcp
+#    reqadd X-Forwarded-Proto:\ https
+#    option ssl-hello-chk
+    server bootstrap-0     192.168.3.180:6443 check
+    server control-plane-0 192.168.3.181:6443 check
+    server control-plane-1 192.168.3.182:6443 check
+    server control-plane-2 192.168.3.183:6443 check
+####################################################
+
+frontend api-int-22623
+    bind *:22623
+    mode tcp
+    option tcplog
+    default_backend api-int-22623
+####################  Backends
+backend api-int-22623
+    mode tcp
+    balance source
+    server bootstrap-0     192.168.3.180:22623  check
+    server control-plane-0 192.168.3.181:22623  check
+    server control-plane-1 192.168.3.182:22623  check
+    server control-plane-2 192.168.3.183:22623  check
+#########################################
+#############################################################
+#  APPS For OpenShift - Frontend and Backends
+#############################################################
+#  Frontend
+frontend apps
+    bind *:443
+    default_backend apps
+    mode tcp
+    option tcplog
+#  Backends
+backend apps
+    mode tcp
+    balance source
+    server compute-0 192.168.3.184:443 check
+    server compute-1 192.168.3.185:443 check
+    server compute-2 192.168.3.186:443 check
+
+####################
+frontend apps-80
+    bind *:80
+    mode tcp
+    default_backend apps-80
+    option tcplog
+#  Backends
+backend apps-80
+    balance source
+    mode tcp
+    server compute-0 192.168.3.184:80 check
+    server compute-1 192.168.3.185:80 check
+    server compute-2 192.168.3.186:80 check
