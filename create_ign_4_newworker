@@ -1,0 +1,10 @@
+AUTOMATED
+Replace api-int.clusterDomain with your FQDN only and run the below commands:
+
+Raw
+export MCS=api-int.clusterDomain:22623
+proceed:
+
+Raw
+echo "q" | openssl s_client -connect $MCS  -showcerts | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' | base64 --wrap=0 | tee ./api-int.base64 && \
+sed --regexp-extended --in-place=.backup "s%base64,[^,]+%base64,$(cat ./api-int.base64)\"%" ./worker.ign
